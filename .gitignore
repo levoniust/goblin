@@ -1,0 +1,16 @@
+app/assets/private/
+*.apk
+/host/goblin
+/host/goblin.exe
+/host/dist/
+app/build/
+app/.dart_tool/
+app/android/key.properties
+app/android/.gradle/
+*.jks
+*.keystore
+app/assets/private/*
+!app/assets/private/.keep
+!app/assets/private/miko/
+app/assets/private/miko/*
+!app/assets/private/miko/.keep

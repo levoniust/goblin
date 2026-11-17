@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Goblin node</title>
+<style>
+:root {
+  --bg: #f6f7f4; --panel: #ffffff; --text: #1d2420; --muted: #5d6a62; --line: #dfe4de;
+  --accent: #2f7d4f; --accent-text: #ffffff; --warn: #a15c00; --bad: #b3261e; --ok: #2f7d4f; --code: #f0f2ee;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121614; --panel: #1b201d; --text: #e3e8e4; --muted: #9aa69e; --line: #2c342f;
+    --accent: #5cc184; --accent-text: #0e1a12; --warn: #e0a24a; --bad: #f2867d; --ok: #5cc184; --code: #0f1311;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { padding: 18px 20px 6px; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; }
+header h1 { margin: 0; font-size: 22px; }
+header .sub { color: var(--muted); }
+nav { display: flex; gap: 4px; padding: 8px 16px 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
+nav button { background: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted); padding: 8px 12px; font: inherit; cursor: pointer; white-space: nowrap; }
+nav button.on { color: var(--text); border-bottom-color: var(--accent); }
+main { padding: 16px; max-width: 1100px; }
+section { display: none; } section.on { display: block; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+.card h2 { margin: 0 0 10px; font-size: 16px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.stat .k { color: var(--muted); font-size: 13px; } .stat .v { font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 500; font-size: 13px; }
+.tablewrap { overflow-x: auto; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 12px; border: 1px solid var(--line); color: var(--muted); }
+.pill.ok { color: var(--ok); border-color: var(--ok); } .pill.bad { color: var(--bad); border-color: var(--bad); } .pill.hub { color: var(--accent-text); background: var(--accent); border-color: var(--accent); }
+button.act { background: var(--accent); color: var(--accent-text); border: 0; border-radius: 7px; padding: 6px 12px; font: inherit; cursor: pointer; }
+button.sec { background: none; color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 6px 12px; font: inherit; cursor: pointer; }
+button.danger { color: var(--bad); }
+code, pre, textarea { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 13px; }
+pre { background: var(--code); border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow: auto; max-height: 65vh; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+textarea { width: 100%; min-height: 55vh; background: var(--code); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+.muted { color: var(--muted); } .warn { color: var(--warn); } .bad { color: var(--bad); } .okc { color: var(--ok); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+ul.probs { margin: 6px 0; padding-left: 20px; color: var(--bad); }
+dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; max-width: 420px; width: calc(100% - 32px); }
+dialog input { font: inherit; padding: 6px 8px; width: 100%; background: var(--code); color: var(--text); border: 1px solid var(--line); border-radius: 6px; }
+a { color: var(--accent); }
+</style>
+</head>
+<body>
+<header><h1 id="name">Goblin</h1><span class="sub" id="sub"></span></header>
+<nav id="tabs">
+  <button data-t="overview" class="on">Overview</button>
+  <button data-t="chats">Chats</button>
+  <button data-t="settings">Settings</button>
+  <button data-t="log">Log</button>
+</nav>
+<main>
+<section id="overview" class="on">
+  <div class="card"><div class="grid" id="stats"></div></div>
+  <div class="card"><div class="row"><h2 style="margin:0;flex:1">Add a phone</h2><button class="act" id="pairBtn">Pair a phone</button></div>
+    <p class="muted" id="pairHelp">Shows a code for Switchboard on your phone. Needs the Goblin PIN.</p>
+    <div id="pairOut" hidden>
+      <div class="row" style="align-items:flex-start;gap:16px">
+        <img id="pairQR" alt="pairing QR code" style="background:#fff;padding:8px;border-radius:8px;width:260px;max-width:100%">
+        <div style="flex:1;min-width:220px">
+          <p>1. Install Switchboard on the phone.<br>2. Scan this code with the phone camera, or send the link below to the phone and open it.<br>3. Every computer of the network shows up in Switchboard.</p>
+          <p class="muted">Works once, for 10 minutes (<span id="pairLeft"></span> left).</p>
+          <div class="row"><button class="sec" id="pairCopy">Copy link</button><span class="muted" id="pairCopied"></span></div>
+        </div>
+      </div>
+      <pre id="pairLink" style="max-height:6em"></pre>
+    </div></div>
+  <div class="card" id="pendingCard" hidden><h2>Waiting for approval</h2>
+    <p class="muted">Approve only if the check code matches the one shown on that device.</p>
+    <div class="tablewrap"><table><thead><tr><th>Name</th><th>Kind</th><th>Check code</th><th></th></tr></thead><tbody id="pending"></tbody></table></div></div>
+  <div class="card"><h2>Computers</h2>
+    <div class="tablewrap"><table><thead><tr><th>Name</th><th>State</th><th>Version</th><th>Addresses</th><th></th></tr></thead><tbody id="hosts"></tbody></table></div>
+    <div class="row"><button class="sec" id="testBtn">Run a hub test</button><span class="muted" id="testMsg"></span></div></div>
+  <div class="card"><h2>Phones and apps</h2>
+    <div class="tablewrap"><table><thead><tr><th>Name</th><th>Last seen</th><th></th></tr></thead><tbody id="clients"></tbody></table></div></div>
+</section>
+<section id="chats">
+  <div class="card"><h2>Chats on this computer</h2>
+    <div class="tablewrap"><table><thead><tr><th>Name</th><th>Program</th><th>Folder</th><th>Last activity</th></tr></thead><tbody id="chatList"></tbody></table></div>
+    <p class="muted">Click a chat to watch it (read only). Type into chats from Switchboard.</p></div>
+  <div class="card" id="viewCard" hidden><div class="row"><h2 id="viewName" style="margin:0;flex:1"></h2><button class="sec" id="viewClose">Close</button></div><pre id="viewText"></pre></div>
+  <div class="card"><h2>New chat menu</h2><div id="launchers"></div><p class="muted">Edit the launchers in Settings.</p></div>
+</section>
+<section id="settings">
+  <div class="card"><h2>goblin.yaml</h2>
+    <p class="muted" id="cfgPath"></p>
+    <textarea id="cfg" spellcheck="false"></textarea>
+    <div class="row"><button class="sec" id="cfgCheck">Check</button><button class="act" id="cfgSave">Save</button><button class="sec" id="cfgReload">Reload from disk</button><span id="cfgMsg"></span></div>
+    <ul class="probs" id="cfgProbs"></ul>
+    <p class="muted">Launchers, links, roots, prefer_hub and never_hub apply within seconds after saving. Other settings apply when Goblin restarts.</p></div>
+</section>
+<section id="log">
+  <div class="card"><div class="row"><h2 style="margin:0;flex:1">goblin.log</h2><label class="muted"><input type="checkbox" id="logFollow" checked> follow</label></div><pre id="logText"></pre></div>
+</section>
+</main>
+<dialog id="pinDlg"><form method="dialog">
+  <p id="pinWhat"></p><input id="pinInput" type="password" inputmode="numeric" autocomplete="off" placeholder="Goblin PIN">
+  <p class="bad" id="pinErr"></p>
+  <div class="row"><button class="act" value="ok">OK</button><button class="sec" value="cancel">Cancel</button></div>
+</form></dialog>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, text, cls) => { const e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; };
+const ago = (ms) => { if (!ms) return 'never'; const s = Math.max(0, (Date.now() - ms) / 1000); if (s < 60) return Math.round(s) + ' s ago'; if (s < 3600) return Math.round(s / 60) + ' min ago'; if (s < 86400) return Math.round(s / 3600) + ' h ago'; return new Date(ms).toLocaleString(); };
+async function api(path, body) {
+  const opt = body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Goblin-UI': '1' }, body: JSON.stringify(body) };
+  const r = await fetch('/ui/api/' + path, opt);
+  if (r.status === 403) { document.body.innerHTML = '<p style="padding:2em">This page has expired. Run <code>goblin ui</code> again.</p>'; throw new Error('expired'); }
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+let tab = 'overview', state = null, viewing = null;
+$('tabs').addEventListener('click', (e) => {
+  const t = e.target.dataset.t; if (!t) return; tab = t;
+  for (const b of $('tabs').children) b.classList.toggle('on', b.dataset.t === t);
+  for (const s of document.querySelectorAll('section')) s.classList.toggle('on', s.id === t);
+  if (t === 'settings' && !$('cfg').dataset.loaded) loadConfig();
+  if (t === 'log') loadLog();
+});
+function askPIN(what) {
+  return new Promise((res) => {
+    $('pinWhat').textContent = what; $('pinErr').textContent = ''; $('pinInput').value = '';
+    $('pinDlg').onclose = () => res($('pinDlg').returnValue === 'ok' ? $('pinInput').value : null);
+    $('pinDlg').showModal(); $('pinInput').focus();
+  });
+}
+async function memberOp(op, id, what) {
+  const pin = await askPIN(what); if (pin == null) return;
+  const r = await api('member', { op, id, pin });
+  if (!r.ok) alert(r.error); refresh();
+}
+function render() {
+  const s = state, n = s.node, net = s.network;
+  document.title = n.name + ' · Goblin';
+  $('name').textContent = n.name;
+  const hub = (net.hosts || []).find((h) => h.hub);
+  $('sub').textContent = 'Goblin ' + n.version + ' · ' + n.os;
+  const stats = [['This computer', n.name], ['Hub', hub ? hub.name + (hub.self ? ' (this one)' : '') : 'none yet'],
+    ['Computers online', (net.hosts || []).filter((h) => h.online || h.via).length + ' of ' + (net.hosts || []).length],
+    ['Chats here', s.chats.length], ['Running since', new Date(n.started).toLocaleString()],
+    ['Hub preference', s.never_hub ? 'never hub' : s.prefer_hub ? 'preferred' : 'normal'], ['Goblin PIN', n.pin_set ? 'set' : 'not set: run goblin init']];
+  $('stats').replaceChildren(...stats.map(([k, v]) => { const d = el('div', null, 'stat'); d.append(el('div', k, 'k'), el('div', String(v), 'v')); return d; }));
+  const pend = net.pending || [];
+  $('pendingCard').hidden = pend.length === 0;
+  $('pending').replaceChildren(...pend.map((p) => {
+    const tr = el('tr'); tr.append(el('td', p.name), el('td', p.kind), el('td', p.code));
+    const td = el('td'); const a = el('button', 'Approve', 'act'); a.onclick = () => memberOp('approve', p.id, `Approve ${p.kind} "${p.name}" with check code ${p.code}?`);
+    const d = el('button', 'Dismiss', 'sec'); d.onclick = () => memberOp('dismiss', p.id, `Dismiss the request from "${p.name}"?`);
+    td.append(a, ' ', d); tr.append(td); return tr;
+  }));
+  $('hosts').replaceChildren(...(net.hosts || []).map((h) => {
+    const tr = el('tr'); const nm = el('td', h.name); if (h.self) nm.append(' ', el('span', 'this one', 'pill'));
+    const st = el('td'); const viaName = h.via ? ((net.hosts || []).find((x) => x.id === h.via) || {}).name || 'another computer' : '';
+    st.append(el('span', h.online || h.via ? 'online' : 'offline', 'pill ' + (h.online || h.via ? 'ok' : 'bad'))); if (h.hub) st.append(' ', el('span', 'hub', 'pill hub'));
+    if (!h.online && h.via) st.append(el('div', 'through ' + viaName + ' (no direct connection from here)', 'muted'));
+    const td = el('td'); if (!h.self) { const b = el('button', 'Remove', 'sec danger'); b.onclick = () => memberOp('remove', h.id, `Remove "${h.name}" from the network for good?`); td.append(b); }
+    tr.append(nm, st, el('td', h.version || ''), el('td', (h.addrs || []).join('  '), 'muted'), td); return tr;
+  }));
+  const cl = net.clients || [];
+  $('clients').replaceChildren(...(cl.length ? cl.map((c) => {
+    const tr = el('tr'); const td = el('td'); const b = el('button', 'Remove', 'sec danger'); b.onclick = () => memberOp('remove', c.id, `Remove "${c.name}"? It loses access to every computer.`); td.append(b);
+    tr.append(el('td', c.name), el('td', ago(c.last)), td); return tr;
+  }) : [(() => { const tr = el('tr'); tr.append(el('td', 'None paired yet: run goblin pair', 'muted')); return tr; })()]));
+  $('chatList').replaceChildren(...(s.chats.length ? s.chats.map((c) => {
+    const tr = el('tr'); tr.style.cursor = 'pointer'; tr.onclick = () => view(c.id, c.name);
+    tr.append(el('td', c.name), el('td', c.label || c.kind || c.command || ''), el('td', c.cwd || '', 'muted'), el('td', ago((c.activity || 0) * (c.activity < 1e11 ? 1000 : 1)))); return tr;
+  }) : [(() => { const tr = el('tr'); tr.append(el('td', 'No chats. Start one from Switchboard.', 'muted')); return tr; })()]));
+  $('launchers').replaceChildren(...s.launchers.map((l) => { const p = el('div'); p.append(el('b', l.label), ' ', el('code', l.command || '(shell)')); return p; }));
+}
+async function refresh() { try { state = await api('state'); render(); } catch (e) { if (e.message !== 'expired') $('sub').textContent = 'Goblin is not answering: ' + e.message; } }
+async function view(id, name) { viewing = id; $('viewCard').hidden = false; $('viewName').textContent = name; await pollView(); $('viewCard').scrollIntoView({ behavior: 'smooth' }); }
+async function pollView() {
+  if (!viewing || tab !== 'chats') return;
+  try { const r = await api('screen/' + encodeURIComponent(viewing)); const pre = $('viewText'); const end = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 20; pre.textContent = r.text; if (end) pre.scrollTop = pre.scrollHeight; }
+  catch { $('viewText').textContent = 'This chat has ended.'; viewing = null; }
+}
+$('viewClose').onclick = () => { viewing = null; $('viewCard').hidden = true; };
+$('testBtn').onclick = async () => { await api('test', {}); $('testMsg').textContent = 'Asked for a hub test; the result shows here in a few seconds.'; setTimeout(() => { $('testMsg').textContent = ''; }, 15000); };
+async function loadConfig() { const r = await api('config'); $('cfg').value = r.text; $('cfgPath').textContent = r.path; $('cfg').dataset.loaded = '1'; $('cfgProbs').replaceChildren(); $('cfgMsg').textContent = ''; }
+function showProbs(p) { $('cfgProbs').replaceChildren(...(p || []).map((x) => el('li', x))); }
+$('cfgCheck').onclick = async () => { const r = await api('config/check', { text: $('cfg').value }); showProbs(r.problems); $('cfgMsg').textContent = r.problems && r.problems.length ? '' : 'No problems.'; $('cfgMsg').className = 'okc'; };
+$('cfgSave').onclick = async () => { const r = await api('config', { text: $('cfg').value }); showProbs(r.problems); $('cfgMsg').textContent = r.ok ? 'Saved. Goblin picks it up within a few seconds.' : 'Not saved: fix the problems below first.'; $('cfgMsg').className = r.ok ? 'okc' : 'bad'; };
+$('cfgReload').onclick = loadConfig;
+let pairTimer = null;
+$('pairBtn').onclick = async () => {
+  const pin = await askPIN('Goblin PIN, to make a pairing code for a new phone:'); if (pin == null) return;
+  const r = await api('pair', { pin });
+  if (!r.ok) { alert(r.error); return; }
+  $('pairOut').hidden = false; $('pairLink').textContent = r.link; $('pairCopied').textContent = '';
+  if (r.qr) { $('pairQR').src = r.qr; $('pairQR').hidden = false; } else { $('pairQR').hidden = true; }
+  const until = Date.now() + 10 * 60 * 1000;
+  clearInterval(pairTimer);
+  const tick = () => { const s = Math.max(0, Math.round((until - Date.now()) / 1000)); $('pairLeft').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); if (!s) { clearInterval(pairTimer); $('pairOut').hidden = true; $('pairHelp').textContent = 'That code expired. Make a new one.'; } };
+  tick(); pairTimer = setInterval(tick, 1000);
+};
+$('pairCopy').onclick = async () => { try { await navigator.clipboard.writeText($('pairLink').textContent); $('pairCopied').textContent = 'Copied.'; } catch { $('pairCopied').textContent = 'Select the link below and copy it.'; } };
+async function loadLog() { if (tab !== 'log') return; const r = await api('log'); const pre = $('logText'); pre.textContent = r.text; if ($('logFollow').checked) pre.scrollTop = pre.scrollHeight; }
+refresh();
+setInterval(refresh, 3000);
+setInterval(pollView, 1500);
+setInterval(loadLog, 3000);
+</script>
+</body>
+</html>
